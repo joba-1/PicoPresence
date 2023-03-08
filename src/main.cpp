@@ -7,24 +7,14 @@ TODO find Serial2 pins and connect sensor to it
 
 #include <Arduino.h>
 
-#define LED_PIN 9
-#define TOGGLE_DELAY 300
-
 #include <ld2410.h>
 
 ld2410 radar;
 String command;
+bool sensor_health = true;
 
-bool outStarted = false;  // Tell other core if printing is ok
-Stream &out = Serial1;    // Route messages through picoprobe (no delay at boot)
 
 void setup1() {
-  Serial1.begin(115200);
-  outStarted = true;
-  out.println("\nLD2410 radar sensor test");
-
-  pinMode(LED_PIN, OUTPUT);
-
   // Serial2.begin (256000, SERIAL_8N1); //UART for monitoring the radar
   // out.print(F("LD2410 radar sensor initialising: "));
   // if(radar.begin(Serial2))
@@ -38,18 +28,8 @@ void setup1() {
   // }
 }
 
-void loop1() {
-  // blink led
-  const static uint32_t interval = TOGGLE_DELAY;
-  static uint32_t prev_ms = 0;
-  uint32_t now = millis();
-  if (now - prev_ms > interval)
-  {
-    prev_ms = now;
-    digitalWrite(LED_PIN, digitalRead(LED_PIN) ? LOW : HIGH);
-    out.printf("%u: Toggle LED\n", now);
-  }
 
+void loop1() {
   // radar.read(); //Always read frames from the sensor
   // if(out.available())
   // {
