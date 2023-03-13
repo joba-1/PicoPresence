@@ -13,7 +13,7 @@ ld2410 radar;
 String command;
 bool sensor_health = true;
 
-
+/*
 void setup1() {
   // Serial2.begin (256000, SERIAL_8N1); //UART for monitoring the radar
   // out.print(F("LD2410 radar sensor initialising: "));
@@ -261,3 +261,4 @@ void loop1() {
   //   }
   // }
 }
+*/

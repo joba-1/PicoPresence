@@ -213,7 +213,7 @@ bool handle_wifi() {
             // WiFi.reconnect();  // currently not supported :(
             reconnectCount++;
             if (reconnectCount > reconnectLimit) {
-                Serial.println("Failed to reconnect WLAN, about to reset");
+                out.println("Failed to reconnect WLAN, about to reset");
                 for (int i = 0; i < 20; i++) {
                     digitalWrite(HEALTH_LED_PIN, (i & 1) ? LOW : HIGH);
                     delay(100);
@@ -365,7 +365,7 @@ void setup() {
         delay(5000);
         rp2040.restart();
     }
-    // WiFi.setDNS(IPAddress(192, 168, 1, 236), IPAddress(192, 168, 1, 236));
+    // WiFi.setDNS(IPAddress(192, 168, 1, 221));
 
     out.printf("Host '%s' IP: %s\n", WiFi.getHostname(), WiFi.localIP().toString().c_str());
 
@@ -375,9 +375,6 @@ void setup() {
 
     // Syslog setup
     syslog.server(SYSLOG_SERVER, SYSLOG_PORT);
-    // IPAddress ip;
-    // ip.fromString(SYSLOG_SERVER);
-    // syslog.server(ip, SYSLOG_PORT);
     syslog.deviceHostname(WiFi.getHostname());
     syslog.appName("Joba1");
     syslog.defaultPriority(LOG_KERN);
@@ -398,6 +395,7 @@ void setup() {
     out.printf("Firmware update on http://%s:%u/update\n", WiFi.getHostname(), HTTP_PORT);
 }
 
+char lm[100] = "";
 
 void loop() {
     bool health = true;
@@ -416,4 +414,9 @@ void loop() {
     httpServer.handleClient();
     MDNS.update();
     handle_reset();
+
+    if (lm[0]) {
+        Serial1.println(lm);
+        lm[0] = '\0';
+    }
 }
