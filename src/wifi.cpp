@@ -27,7 +27,6 @@ bool enabledBreathing = true;  // global flag to switch breathing animation on o
 extern bool sensor_health;  // from main.cpp
 
 // Infrastructure
-#include <Syslog.h>
 
 // Get wlan data from eeprom (written by PicoWlan firmware)
 #include <EEPROM.h>
@@ -56,6 +55,7 @@ PubSubClient mqtt(wifiMqtt);
 
 // Syslog
 #include <WiFiUdp.h>
+#include <Syslog.h>
 WiFiUDP logUDP;
 Syslog syslog(logUDP, SYSLOG_PROTO_IETF);
 char msg[512];  // one buffer for all syslog and json messages
@@ -237,6 +237,7 @@ bool handle_wifi() {
 // return true if time is valid
 bool check_ntptime() {
     static bool have_time = false;
+    static bool ntp_stopped = true;
 
     if (!have_time) {
         time_t now = time(NULL);
@@ -248,6 +249,10 @@ bool check_ntptime() {
             if (mqtt.connected()) {
                 publish(MQTT_TOPIC "/status/StartTime", start_time);
             }
+        }
+        else if (ntp_stopped && now > 1) {
+            ntp_stopped = false;
+            NTP.begin(NTP_SERVER);  // start with a delay
         }
     }
 
@@ -371,8 +376,6 @@ void setup() {
 
     MDNS.begin(WiFi.getHostname());
 
-    NTP.begin(NTP_SERVER);
-
     // Syslog setup
     syslog.server(SYSLOG_SERVER, SYSLOG_PORT);
     syslog.deviceHostname(WiFi.getHostname());
@@ -395,7 +398,15 @@ void setup() {
     out.printf("Firmware update on http://%s:%u/update\n", WiFi.getHostname(), HTTP_PORT);
 }
 
-char lm[100] = "";
+#include <queue>
+
+std::queue<String> msgs;
+
+extern "C" {
+    void push(const char *msg) {
+        msgs.push(msg);
+    }
+}
 
 void loop() {
     bool health = true;
@@ -415,8 +426,8 @@ void loop() {
     MDNS.update();
     handle_reset();
 
-    if (lm[0]) {
-        Serial1.println(lm);
-        lm[0] = '\0';
+    while(!msgs.empty()) {
+        Serial1.print(msgs.front());
+        msgs.pop();
     }
 }
