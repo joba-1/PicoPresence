@@ -65,6 +65,8 @@ int8_t lastRssi = 0;                     // last RSSI (for reporting)
 
 char start_time[30];
 
+#include <radar.h>
+
 
 void slog(const char *message, uint16_t pri = LOG_INFO) {
     static bool log_infos = true;
@@ -233,6 +235,67 @@ bool handle_wifi() {
 }
 
 
+const char *json_bool( bool value ) {
+    return value ? "true" : "false";
+}
+
+
+bool json_Radar( char *json, size_t maxlen, const Radar::status_t status ) {
+    static const char jsonFmt[] =
+        "{\"Version\":" VERSION ",\"Hostname\":\"%s\",\"Radar\":{"
+        "\"Connected\":%s,"
+        "\"Stationary\":{\"Presence\":%s, \"Distance\":%u,\"Energy\":%u},"
+        "\"Moving\":{\"Presence\":%s, \"Distance\":%u,\"Energy\":%u}}";
+
+    int len = snprintf(json, maxlen, jsonFmt, WiFi.getHostname(), json_bool(status.connected), 
+        json_bool(status.stationary.detected), status.stationary.distance_cm, status.stationary.energy,
+        json_bool(status.moving.detected), status.moving.distance_cm, status.moving.energy);
+
+    return len > 0 && (size_t)len < maxlen;
+}
+
+
+void report_radar( const Radar::status_t &status ) {
+    static const char lineFmt[] =
+        "Radar,Host=%s,Version=" VERSION " "
+        "Connected=%u,"
+        "StationaryPresence=%u,"
+        "MovingPresence=%u,"
+        "StationaryDistance=%u,"
+        "MovingDistance=%u,"
+        "StationaryEnergy=%u,"
+        "MovingEnergy=%u";
+    char line[sizeof(lineFmt)+100];
+
+    json_Radar(msg, sizeof(msg), status);
+    slog(msg);
+    publish(MQTT_TOPIC "/json/Radar", msg);
+
+    snprintf(line, sizeof(line), lineFmt, WiFi.getHostname(), 
+        status.connected, status.stationary.detected, status.moving.detected,
+        status.stationary.distance_cm, status.moving.distance_cm, 
+        status.stationary.energy, status.moving.energy);
+    postInflux(line);
+}
+
+
+void handle_radar() {
+    static Radar::status_t prev_status = {0};
+    Radar::status_t status;
+
+    const uint32_t interval = 1000;
+    static uint32_t prev_ms = 0;
+    uint32_t now = millis();
+
+    RadarStatus.get(status);
+    if (now - prev_ms > interval || status != prev_status) {
+        report_radar(status);
+        prev_status = status;
+        prev_ms = now;
+    }
+}
+
+
 // check ntp status
 // return true if time is valid
 bool check_ntptime() {
@@ -339,6 +402,18 @@ bool handle_mqtt( bool time_valid ) {
 }
 
 
+extern volatile uint32_t counter;
+void handle_counter() {
+    const uint32_t interval = 1000;
+    static uint32_t prev_ms = 0;
+    uint32_t now = millis();
+    if (now - prev_ms > interval) {
+        prev_ms = now;
+        out.printf("count: %lu\n", counter);
+    }
+}
+
+
 void setup() {
     pinMode(HEALTH_LED_PIN, OUTPUT);
     digitalWrite(HEALTH_LED_PIN, HIGH);
@@ -409,6 +484,9 @@ extern "C" {
 }
 
 void loop() {
+    handle_counter();
+    handle_radar();
+
     bool health = true;
 
     bool have_time = check_ntptime();
