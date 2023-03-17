@@ -14,13 +14,13 @@ String command;
 bool sensor_health = true;
 
 static Stream &out = Serial;
-volatile uint32_t counter = 0;
+// volatile uint32_t counter = 0;
 
 
 void setup1() {
-  counter++;
+  // counter++; // show core 0 that core 1 has started
   Serial.begin(115200);
-  while (!Serial);
+  while (!Serial && millis() < 2000);  // Sometimes Serial is false forever. The output is not _that_ important...
   Serial2.setRX(5);
   Serial2.setTX(4);
   Serial2.begin (256000, SERIAL_8N1);  // UART for monitoring the radar
@@ -38,13 +38,20 @@ void setup1() {
 
 
 void loop1() {
-  counter++;
-  radar.read();
- // Always read frames from the sensor
+  // counter++;  // show core 0 that core 1 is processing the loop1
 
-  // RadarStatus always contains latest valid values
-  RadarStatus.update(radar);
+  radar.read();  // Always read frames from the sensor
 
+  // RadarStatus always contains latest valid values updated every 10ms
+  const uint32_t interval = 10;
+  static uint32_t prev_ms = 0;
+  uint32_t now = millis();
+  if (now - prev_ms > interval) {
+    prev_ms = now;
+    RadarStatus.update(radar);
+  }
+
+  // for testing sensor settings...
   if(out.available())
   {
     char typedCharacter = out.read();

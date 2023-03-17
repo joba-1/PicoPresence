@@ -244,8 +244,8 @@ bool json_Radar( char *json, size_t maxlen, const Radar::status_t status ) {
     static const char jsonFmt[] =
         "{\"Version\":" VERSION ",\"Hostname\":\"%s\",\"Radar\":{"
         "\"Connected\":%s,"
-        "\"Stationary\":{\"Presence\":%s, \"Distance\":%u,\"Energy\":%u},"
-        "\"Moving\":{\"Presence\":%s, \"Distance\":%u,\"Energy\":%u}}";
+        "\"Stationary\":{\"Presence\":%s,\"Distance\":%u,\"Energy\":%u},"
+        "\"Moving\":{\"Presence\":%s,\"Distance\":%u,\"Energy\":%u}}";
 
     int len = snprintf(json, maxlen, jsonFmt, WiFi.getHostname(), json_bool(status.connected), 
         json_bool(status.stationary.detected), status.stationary.distance_cm, status.stationary.energy,
@@ -287,9 +287,14 @@ void handle_radar() {
     static uint32_t prev_ms = 0;
     uint32_t now = millis();
 
-    RadarStatus.get(status);
-    if (now - prev_ms > interval || status != prev_status) {
-        report_radar(status);
+    static uint32_t count = 0;
+
+    if (now - prev_ms > interval) {
+        RadarStatus.get(status);
+        if (status != prev_status || ++count >= 10) {
+            report_radar(status);
+            count = 0;
+        }
         prev_status = status;
         prev_ms = now;
     }
@@ -337,6 +342,7 @@ void handle_reset() {
         do_reset("BOOTSEL pressed");
     }
 }
+
 
 // Called on incoming mqtt messages
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
@@ -402,16 +408,16 @@ bool handle_mqtt( bool time_valid ) {
 }
 
 
-extern volatile uint32_t counter;
-void handle_counter() {
-    const uint32_t interval = 1000;
-    static uint32_t prev_ms = 0;
-    uint32_t now = millis();
-    if (now - prev_ms > interval) {
-        prev_ms = now;
-        out.printf("count: %lu\n", counter);
-    }
-}
+// extern volatile uint32_t counter;
+// void handle_counter() {
+//     const uint32_t interval = 1000;
+//     static uint32_t prev_ms = 0;
+//     uint32_t now = millis();
+//     if (now - prev_ms > interval) {
+//         prev_ms = now;
+//         out.printf("count: %lu\n", counter);
+//     }
+// }
 
 
 void setup() {
@@ -445,7 +451,6 @@ void setup() {
         delay(5000);
         rp2040.restart();
     }
-    // WiFi.setDNS(IPAddress(192, 168, 1, 221));
 
     out.printf("Host '%s' IP: %s\n", WiFi.getHostname(), WiFi.localIP().toString().c_str());
 
@@ -473,18 +478,9 @@ void setup() {
     out.printf("Firmware update on http://%s:%u/update\n", WiFi.getHostname(), HTTP_PORT);
 }
 
-#include <queue>
-
-std::queue<String> msgs;
-
-extern "C" {
-    void push(const char *msg) {
-        msgs.push(msg);
-    }
-}
 
 void loop() {
-    handle_counter();
+    // handle_counter();
     handle_radar();
 
     bool health = true;
@@ -503,9 +499,4 @@ void loop() {
     httpServer.handleClient();
     MDNS.update();
     handle_reset();
-
-    while(!msgs.empty()) {
-        Serial1.print(msgs.front());
-        msgs.pop();
-    }
 }

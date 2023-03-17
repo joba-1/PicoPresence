@@ -1,11 +1,11 @@
 #ifndef RADAR_H
 #define RADAR_H
 
+
 #include <stdint.h>
-#include <string.h>
-#include <sys/types.h>
 #include <CoreMutex.h>
 #include <ld2410.h>
+
 
 class Radar {
 public:
@@ -22,6 +22,8 @@ public:
         target_t moving;
     } status_t;
 
+    Radar();
+
     void update( ld2410 &radar );
     void get( status_t &status );
 
@@ -30,10 +32,11 @@ private:
   mutex_t _mutex;
 };
 
-bool operator!=( const Radar::status_t& l, const Radar::status_t& r ) {
-    return memcmp(&l, &r, sizeof(Radar::status_t)) == 0;
-}
+
+bool operator!=( const Radar::status_t& l, const Radar::status_t& r );
+
 
 extern Radar RadarStatus;
+
 
 #endif

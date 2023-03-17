@@ -1,4 +1,11 @@
 #include <radar.h>
+#include <string.h>
+
+
+Radar::Radar() : _status({0}) {
+    mutex_init(&_mutex);
+}
+
 
 void Radar::update( ld2410 &radar ) {
     CoreMutex m(&_mutex);
@@ -22,8 +29,17 @@ void Radar::update( ld2410 &radar ) {
     }
 }
 
+
 void Radar::get( status_t &status ) {
     CoreMutex m(&_mutex);
 
     status = _status;
 }
+
+
+bool operator!=( const Radar::status_t& l, const Radar::status_t& r ) {
+    return memcmp(&l, &r, sizeof(Radar::status_t)) != 0;
+}
+
+
+Radar RadarStatus;
